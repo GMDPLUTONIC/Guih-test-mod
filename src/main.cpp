@@ -1,100 +1,107 @@
-/**
- * Include the Geode headers.
- */
-#include <Geode/Geode.hpp>
+#include <Windows.h>
+#include "guiH.hpp"
+#include "hookH.hpp"
 
-/**
- * Brings cocos2d and all Geode namespaces to the current scope.
- */
-using namespace geode::prelude;
+WNDPROC PrevProc;
+bool inited_Wnd = false;
 
-/**
- * `$modify` lets you extend and modify GD's classes.
- * To hook a function in Geode, simply $modify the class
- * and write a new function definition with the signature of
- * the function you want to hook.
- *
- * Here we use the overloaded `$modify` macro to set our own class name,
- * so that we can use it for button callbacks.
- *
- * Notice the header being included, you *must* include the header for
- * the class you are modifying, or you will get a compile error.
- *
- * Another way you could do this is like this:
- *
- * struct MyMenuLayer : Modify<MyMenuLayer, MenuLayer> {};
- */
-#include <Geode/modify/MenuLayer.hpp>
-class $modify(MyMenuLayer, MenuLayer) {
-	/**
-	 * Typically classes in GD are initialized using the `init` function, (though not always!),
-	 * so here we use it to add our own button to the bottom menu.
-	 *
-	 * Note that for all hooks, your signature has to *match exactly*,
-	 * `void init()` would not place a hook!
-	*/
-	bool init() {
-		/**
-		 * We call the original init function so that the
-		 * original class is properly initialized.
-		 */
-		if (!MenuLayer::init()) {
-			return false;
-		}
+bool logs = false;
+bool yes_no = false;
+std::string text;
 
-		/**
-		 * You can use methods from the `geode::log` namespace to log messages to the console,
-		 * being useful for debugging and such. See this page for more info about logging:
-		 * https://docs.geode-sdk.org/tutorials/logging
-		*/
-		log::debug("Hello from my MenuLayer::init hook! This layer has {} children.", this->getChildrenCount());
+LRESULT CALLBACK NewWndProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam) {
+    if (guiH::WndProc(hWnd, Msg, wParam, lParam)) {
+        return false;
+    }
 
-		/**
-		 * See this page for more info about buttons
-		 * https://docs.geode-sdk.org/tutorials/buttons
-		*/
-		auto myButton = CCMenuItemSpriteExtra::create(
-			CCSprite::createWithSpriteFrameName("GJ_likeBtn_001.png"),
-			this,
-			/**
-			 * Here we use the name we set earlier for our modify class.
-			*/
-			menu_selector(MyMenuLayer::onMyButton)
-		);
+    return CallWindowProc(PrevProc, hWnd, Msg, wParam, lParam);
+}
 
-		/**
-		 * Here we access the `bottom-menu` node by its ID, and add our button to it.
-		 * Node IDs are a Geode feature, see this page for more info about it:
-		 * https://docs.geode-sdk.org/tutorials/nodetree
-		*/
-		auto menu = this->getChildByID("bottom-menu");
-		menu->addChild(myButton);
+guiH_Window Window1;
+guiH_Window Window2;
+guiH_Window Window3;
 
-		/**
-		 * The `_spr` string literal operator just prefixes the string with
-		 * your mod id followed by a slash. This is good practice for setting your own node ids.
-		*/
-		myButton->setID("my-button"_spr);
+typedef BOOL(__stdcall* SwapBuffersType)(HDC hdc);
+SwapBuffersType SwapBuffersOriginal;
 
-		/**
-		 * We update the layout of the menu to ensure that our button is properly placed.
-		 * This is yet another Geode feature, see this page for more info about it:
-		 * https://docs.geode-sdk.org/tutorials/layouts
-		*/
-		menu->updateLayout();
+BOOL __stdcall SwapBuffersHook(HDC hdc) {
+    guiH::Frame_Update(hdc);
+    guiH::Frame_Begin(hdc);
 
-		/**
-		 * We return `true` to indicate that the class was properly initialized.
-		 */
-		return true;
+    Window1.Render();
+    Window2.Render();
+    Window3.Render();
+
+	if (logs) { 
+		std::string log;
+		log += std::to_string(guiH::IO.MousePos.X) + "; " + std::to_string(guiH::IO.MousePos.Y) + "\n";
+		log += std::to_string(guiH::IO.MouseDown[0]) + "; " + std::to_string(guiH::IO.MouseHold[0]) + "; " + std::to_string(guiH::IO.MouseRelease[0]) + "\n";
+		log += std::string(yes_no ? "Checked" : "Not Checked") + "\n";
+		log += "Input text: " + text;
+		guiH::Graphics::Font::RenderText(5, 5, log.c_str(), {255, 255, 255});
 	}
 
-	/**
-	 * This is the callback function for the button we created earlier.
-	 * The signature for button callbacks must always be the same,
-	 * return type `void` and taking a `CCObject*`.
-	*/
-	void onMyButton(CCObject*) {
-		FLAlertLayer::create("Geode", "Hello from my custom mod!", "OK")->show();
-	}
-};
+    guiH::Frame_End(hdc);
+
+    if (!inited_Wnd) {
+        inited_Wnd = true;
+        PrevProc = (WNDPROC)GetWindowLongPtr(guiH::IO.Window, GWLP_WNDPROC);
+        SetWindowLongPtr(guiH::IO.Window, GWLP_WNDPROC, (LONG_PTR)NewWndProc);
+    }
+    return SwapBuffersOriginal(hdc);
+}
+
+void Main() {
+	Window1.Caption = "Hello 1";
+    Window1.Position = {10, 10};
+    Window1.Size = {200, 200};
+    guiH_Button Button1 = {"Enable Logs", {5, 5}, {190, 20}};
+	Button1.setButtonPressHandler([]() 
+    {
+		logs = true;
+    });
+
+    Window1.Buttons.push_back(Button1);
+
+	guiH_Checkbox Checkbox1 = {"Test", {5, 30}};
+	Checkbox1.setCheckboxPressHandler([](bool checked) 
+    {
+		yes_no = checked;
+    });
+
+	guiH_TextBox textbox = {"", {5, 55}, {180, 18}};
+	textbox.TextHint = "Enter your text here...";
+	textbox.setEditedTextHandler([](std::string edited_text) 
+    {
+		text = edited_text;
+    });
+
+    Window1.Buttons.push_back(Button1);
+	Window1.Checkboxes.push_back(Checkbox1);
+	Window1.TextBoxes.push_back(textbox);
+
+    Window2.Caption = "Hello 2";
+    Window2.Position = {220, 10};
+    Window2.Size = {200, 200};
+    guiH_Button Button2 = {"Disable Logs", {5, 5}, {190, 20}};
+	Button2.setButtonPressHandler([]() 
+    {
+		logs = false;
+    });
+
+    Window2.Buttons.push_back(Button2);
+
+    Window3.Caption = "Hello 3";
+    Window3.Position = {430, 10};
+    Window3.Size = {200, 200};
+    guiH_Button Button3 = {"Show Message", {5, 5}, {190, 20}};
+	Button3.setButtonPressHandler([]() 
+    {
+		MessageBoxA(0,0,0,0);
+    });
+
+    Window3.Buttons.push_back(Button3);
+
+    SwapBuffersOriginal = (SwapBuffersType)GetProcAddress(GetModuleHandleA("opengl32.dll"), "wglSwapBuffers");
+    SwapBuffersOriginal = (SwapBuffersType)HookH::TrampHook32((BYTE*)SwapBuffersOriginal, (BYTE*)SwapBuffersHook, 5);
+}
