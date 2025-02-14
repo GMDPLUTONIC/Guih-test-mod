@@ -1,5 +1,3 @@
-#include <Windows.h>
-
 namespace HookH
 {
     bool Detour32(BYTE* src, BYTE* dst, const uintptr_t len) {
