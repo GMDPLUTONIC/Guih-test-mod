@@ -1,7 +1,6 @@
 #define _USE_MATH_DEFINES
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 #define min(a, b) (((a) < (b)) ? (a) : (b))
-#include <Windows.h>
 #pragma comment(lib, "opengl32")
 #include <math.h>
 #include <GL/GL.h>
