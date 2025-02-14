@@ -1,5 +1,4 @@
 #include <Geode/Geode.hpp>
-#include <Windows.h>
 #include "guiH.hpp"
 #include "hookH.hpp"
 
