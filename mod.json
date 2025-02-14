@@ -1,14 +1,14 @@
 {
-	"geode": "$GEODE_VERSION",
+	"geode": "4.2.0",
 	"gd": {
 		"win": "2.2074",
 		"android": "2.2074",
 		"mac": "2.2074",
 		"ios": "2.2074"
 	},
-	"id": "$MOD_ID",
-	"name": "$MOD_NAME",
-	"version": "$MOD_VERSION",
-	"developer": "$MOD_DEVELOPER",
-	"description": "$MOD_DESCRIPTION"
+	"id": "gmp.guih-test-mod",
+	"name": "guih test mod",
+	"version": "v1.0.0",
+	"developer": "gmp",
+	"description": ""
 }
